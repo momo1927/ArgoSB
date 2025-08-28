@@ -6,7 +6,6 @@ error_exit() {
     echo "$1" 1>&2
     exit 1
 }
-
 # 检查命令是否存在
 check_dependency() {
     if ! command -v "$1" >/dev/null 2>&1; then
