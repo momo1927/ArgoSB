@@ -445,6 +445,7 @@ fi
 }
 
 xrsbout(){
+# 修复Xray启动部分的语法错误
 if [ -e "$HOME/agsb/xray" ]; then
 sed -i '${s/,\s*$//}' "$HOME/agsb/xr.json"
 cat >> "$HOME/agsb/xr.json" <<EOF
@@ -458,13 +459,37 @@ cat >> "$HOME/agsb/xr.json" <<EOF
 }
 EOF
 echo "启动Xray服务..."
-if ! nohup "$HOME/agsb/xray" run -c "$HOME/agsb/xr.json" >/dev/null 2>&1 &; then
+if ! nohup "$HOME/agsb/xray" run -c "$HOME/agsb/xr.json" >/dev/null 2>&1 & then
     error_exit "Xray服务启动失败"
 fi
 # 检查Xray是否成功启动
 sleep 2
 if ! pgrep -f "$HOME/agsb/xray" >/dev/null 2>&1; then
     error_exit "Xray服务启动后意外退出，请检查日志"
+fi
+fi
+
+# 修复Sing-box启动部分的语法错误
+if [ -e "$HOME/agsb/sing-box" ]; then
+sed -i '${s/,\s*$//}' "$HOME/agsb/sb.json"
+cat >> "$HOME/agsb/sb.json" <<EOF
+],
+"outbounds": [
+{
+"type":"direct",
+"tag":"direct"
+}
+]
+}
+EOF
+echo "启动Sing-box服务..."
+if ! nohup "$HOME/agsb/sing-box" run -c "$HOME/agsb/sb.json" >/dev/null 2>&1 & then
+    error_exit "Sing-box服务启动失败"
+fi
+# 检查Sing-box是否成功启动
+sleep 2
+if ! pgrep -f "$HOME/agsb/sing-box" >/dev/null 2>&1; then
+    error_exit "Sing-box服务启动后意外退出，请检查日志"
 fi
 fi
 if [ -e "$HOME/agsb/sing-box" ]; then
