@@ -35,7 +35,7 @@ if ! find /proc/*/exe -type l 2>/dev/null | grep -E '/proc/[0-9]+/exe' | xargs -
     fi
 fi
 
-export uuid=${uuid:-''}
+export uuid=${uuid:-'f7636b36-11bd-4e72-ac6d-fef534968f33'}
 export port_vl_re=${vlpt:-''}
 export port_vm_ws=${vmpt:-''}
 export port_hy2=${hypt:-''}
