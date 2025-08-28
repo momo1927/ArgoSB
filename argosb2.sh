@@ -505,7 +505,7 @@ cat >> "$HOME/agsb/sb.json" <<EOF
 }
 EOF
 echo "启动Sing-box服务..."
-if ! nohup "$HOME/agsb/sing-box" run -c "$HOME/agsb/sb.json" >/dev/null 2>&1 &; then
+if ! nohup "$HOME/agsb/sing-box" run -c "$HOME/agsb/sb.json" >/dev/null 2>&1 & then
     error_exit "Sing-box服务启动失败"
 fi
 # 检查Sing-box是否成功启动
