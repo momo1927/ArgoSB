@@ -471,7 +471,7 @@ xrsbout(){
 EOF
         echo "启动Xray服务..."
         # 修复语法错误：正确的后台启动方式
-        if ! nohup "$HOME/agsb/xray" run -c "$HOME/agsb/xr.json" >/dev/null 2>&1 &; then
+        if ! nohup "$HOME/agsb/xray" run -c "$HOME/agsb/xr.json" >/dev/null 2>&1 & then
             error_exit "Xray服务启动失败"
         fi
         # 检查Xray是否成功启动
