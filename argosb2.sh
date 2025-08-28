@@ -549,7 +549,7 @@ ins(){
             name='固定'
             echo "启动固定Argo隧道..."
             # 修复启动命令语法
-            if ! nohup "$HOME/agsb/cloudflared" tunnel --no-autoupdate --edge-ip-version auto --protocol http2 run --token "${ARGO_AUTH}" >/dev/null 2>&1 &; then
+            if ! nohup "$HOME/agsb/cloudflared" tunnel --no-autoupdate --edge-ip-version auto --protocol http2 run --token "${ARGO_AUTH}" >/dev/null 2>&1 & then
                 error_exit "固定Argo隧道启动失败"
             fi
             echo "${ARGO_DOMAIN}" > "$HOME/agsb/sbargoym.log"
