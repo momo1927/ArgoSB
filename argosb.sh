@@ -1,5 +1,26 @@
 #!/bin/sh
 export LANG=en_US.UTF-8
+
+# 增加错误处理函数
+error_exit() {
+    echo "$1" 1>&2
+    exit 1
+}
+
+# 检查命令是否存在
+check_dependency() {
+    if ! command -v "$1" >/dev/null 2>&1; then
+        error_exit "错误：缺少必要工具 $1，请先安装"
+    fi
+}
+
+# 检查必要依赖
+check_dependency curl
+check_dependency grep
+check_dependency awk
+check_dependency sed
+check_dependency base64
+
 if ! find /proc/*/exe -type l 2>/dev/null | grep -E '/proc/[0-9]+/exe' | xargs -r readlink 2>/dev/null | grep -Eq 'agsb/(s|x)' && ! pgrep -f 'agsb/(s|x)' >/dev/null 2>&1; then
 [ -z "${vlpt+x}" ] || vlp=yes
 [ -z "${vmpt+x}" ] || { vmp=yes; vmag=yes; } 
@@ -9,7 +30,7 @@ if ! find /proc/*/exe -type l 2>/dev/null | grep -E '/proc/[0-9]+/exe' | xargs -
 [ -z "${anpt+x}" ] || anp=yes
 [ "$vlp" = yes ] || [ "$vmp" = yes ] || [ "$hyp" = yes ] || [ "$tup" = yes ] || [ "$xhp" = yes ] || [ "$anp" = yes ] || { echo "提示：使用此脚本时，请在脚本前至少设置一个协议变量哦，再见！"; exit; }
 fi
-export uuid=${uuid:-'f7636b36-11bd-4e72-ac6d-fef534968f33'}
+export uuid=${uuid:-''}
 export port_vl_re=${vlpt:-''}
 export port_vm_ws=${vmpt:-''}
 export port_hy2=${hypt:-''}
@@ -31,7 +52,7 @@ echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 echo "Blogger博客 ：kjgx668.blogspot.com"
 echo "YouTube频道 ：www.youtube.com/@kejigongxiang"
 echo "ArgoSB一键无交互极简脚本【Sing-box + Xray + Argo三内核合一】"
-echo "当前版本：V25.7.4"
+echo "当前版本：V25.7.4 (修复版)"
 echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 hostname=$(uname -a | awk '{print $2}')
 op=$(cat /etc/redhat-release 2>/dev/null || cat /etc/os-release 2>/dev/null | grep -i pretty_name | cut -d \" -f2)
@@ -42,6 +63,27 @@ x86_64) cpu=amd64;;
 *) echo "目前脚本不支持$(uname -m)架构" && exit
 esac
 mkdir -p "$HOME/agsb"
+
+# 下载文件并验证的函数
+download_and_verify() {
+    local url=$1
+    local output=$2
+    local expected_type=$3
+
+    echo "正在从 $url 下载文件..."
+    if ! curl -Lo "$output" -# --retry 3 --retry-delay 2 "$url"; then
+        error_exit "下载 $url 失败"
+    fi
+
+    # 检查文件类型是否符合预期
+    if ! file "$output" | grep -q "$expected_type"; then
+        rm -f "$output"
+        error_exit "下载的文件 $output 不是有效的 $expected_type 文件"
+    fi
+
+    chmod +x "$output"
+}
+
 warpcheck(){
 wgcfv6=$(curl -s6m5 https://www.cloudflare.com/cdn-cgi/trace -k | grep warp | cut -d= -f2)
 wgcfv4=$(curl -s4m5 https://www.cloudflare.com/cdn-cgi/trace -k | grep warp | cut -d= -f2)
@@ -50,8 +92,11 @@ insuuid(){
 if [ -z "$uuid" ]; then
 if [ -e "$HOME/agsb/sing-box" ]; then
 uuid=$("$HOME/agsb/sing-box" generate uuid)
-else
+elif [ -e "$HOME/agsb/xray" ]; then
 uuid=$("$HOME/agsb/xray" uuid)
+else
+# 如果两个内核都没有，生成一个随机UUID
+uuid=$(cat /proc/sys/kernel/random/uuid)
 fi
 fi
 echo "$uuid" > "$HOME/agsb/uuid"
@@ -61,10 +106,22 @@ installxray(){
 echo
 echo "=========启用xray内核========="
 if [ ! -e "$HOME/agsb/xray" ]; then
-curl -Lo "$HOME/agsb/xray" -# --retry 2 https://github.com/zzzhhh1/ArgoSB/releases/download/argosbx/xray-$cpu
-chmod +x "$HOME/agsb/xray"
-sbcore=$("$HOME/agsb/xray" version 2>/dev/null | awk '/^Xray/{print $2}')
-echo "已安装Xray正式版内核：$sbcore"
+    # 使用官方Xray下载链接
+    case $cpu in
+        amd64) xray_url="https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64" ;;
+        arm64) xray_url="https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-arm64-v8a" ;;
+        *) error_exit "不支持的CPU架构: $cpu" ;;
+    esac
+    
+    download_and_verify "$xray_url" "$HOME/agsb/xray" "ELF 64-bit executable"
+    
+    # 验证Xray是否可运行
+    if ! "$HOME/agsb/xray" version >/dev/null 2>&1; then
+        error_exit "Xray内核无法运行，请检查系统兼容性"
+    fi
+    
+    sbcore=$("$HOME/agsb/xray" version 2>/dev/null | awk '/^Xray/{print $2}')
+    echo "已安装Xray正式版内核：$sbcore"
 fi
 cat > "$HOME/agsb/xr.json" <<EOF
 {
@@ -196,10 +253,22 @@ installsb(){
 echo
 echo "=========启用Sing-box内核========="
 if [ ! -e "$HOME/agsb/sing-box" ]; then
-curl -Lo "$HOME/agsb/sing-box" -# --retry 2 https://github.com/zzzhhh1/ArgoSB/releases/download/argosbx/sing-box-$cpu
-chmod +x "$HOME/agsb/sing-box"
-sbcore=$("$HOME/agsb/sing-box" version 2>/dev/null | awk '/version/{print $NF}')
-echo "已安装Sing-box正式版内核：$sbcore"
+    # 更新Sing-box下载链接
+    case $cpu in
+        amd64) sb_url="https://github.com/SagerNet/sing-box/releases/latest/download/sing-box-$(uname -s | tr '[:upper:]' '[:lower:]')-amd64" ;;
+        arm64) sb_url="https://github.com/SagerNet/sing-box/releases/latest/download/sing-box-$(uname -s | tr '[:upper:]' '[:lower:]')-arm64" ;;
+        *) error_exit "不支持的CPU架构: $cpu" ;;
+    esac
+    
+    download_and_verify "$sb_url" "$HOME/agsb/sing-box" "ELF 64-bit executable"
+    
+    # 验证Sing-box是否可运行
+    if ! "$HOME/agsb/sing-box" version >/dev/null 2>&1; then
+        error_exit "Sing-box内核无法运行，请检查系统兼容性"
+    fi
+    
+    sbcore=$("$HOME/agsb/sing-box" version 2>/dev/null | awk '/version/{print $NF}')
+    echo "已安装Sing-box正式版内核：$sbcore"
 fi
 cat > "$HOME/agsb/sb.json" <<EOF
 {
@@ -389,7 +458,15 @@ cat >> "$HOME/agsb/xr.json" <<EOF
   ]
 }
 EOF
-nohup "$HOME/agsb/xray" run -c "$HOME/agsb/xr.json" >/dev/null 2>&1 &
+echo "启动Xray服务..."
+if ! nohup "$HOME/agsb/xray" run -c "$HOME/agsb/xr.json" >/dev/null 2>&1 &; then
+    error_exit "Xray服务启动失败"
+fi
+# 检查Xray是否成功启动
+sleep 2
+if ! pgrep -f "$HOME/agsb/xray" >/dev/null 2>&1; then
+    error_exit "Xray服务启动后意外退出，请检查日志"
+fi
 fi
 if [ -e "$HOME/agsb/sing-box" ]; then
 sed -i '${s/,\s*$//}' "$HOME/agsb/sb.json"
@@ -403,7 +480,15 @@ cat >> "$HOME/agsb/sb.json" <<EOF
 ]
 }
 EOF
-nohup "$HOME/agsb/sing-box" run -c "$HOME/agsb/sb.json" >/dev/null 2>&1 &
+echo "启动Sing-box服务..."
+if ! nohup "$HOME/agsb/sing-box" run -c "$HOME/agsb/sb.json" >/dev/null 2>&1 &; then
+    error_exit "Sing-box服务启动失败"
+fi
+# 检查Sing-box是否成功启动
+sleep 2
+if ! pgrep -f "$HOME/agsb/sing-box" >/dev/null 2>&1; then
+    error_exit "Sing-box服务启动后意外退出，请检查日志"
+fi
 fi
 }
 
@@ -430,17 +515,35 @@ echo "=========启用Cloudflared-argo内核========="
 if [ ! -e "$HOME/agsb/cloudflared" ]; then
 argocore=$(curl -Ls https://data.jsdelivr.com/v1/package/gh/cloudflare/cloudflared | grep -Eo '"[0-9.]+"' | sed -n 1p | tr -d '",')
 echo "下载Cloudflared-argo最新正式版内核：$argocore"
-curl -Lo "$HOME/agsb/cloudflared" -# --retry 2 https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$cpu
-chmod +x "$HOME/agsb/cloudflared"
+
+# 更新Cloudflared下载链接
+case $cpu in
+    amd64) cloudflared_url="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64" ;;
+    arm64) cloudflared_url="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64" ;;
+    *) error_exit "不支持的CPU架构: $cpu" ;;
+esac
+
+download_and_verify "$cloudflared_url" "$HOME/agsb/cloudflared" "ELF 64-bit executable"
+
+# 验证Cloudflared是否可运行
+if ! "$HOME/agsb/cloudflared" version >/dev/null 2>&1; then
+    error_exit "Cloudflared无法运行，请检查系统兼容性"
+fi
 fi
 if [ -n "${ARGO_DOMAIN}" ] && [ -n "${ARGO_AUTH}" ]; then
 name='固定'
-nohup "$HOME/agsb/cloudflared" tunnel --no-autoupdate --edge-ip-version auto --protocol http2 run --token "${ARGO_AUTH}" >/dev/null 2>&1 &
+echo "启动固定Argo隧道..."
+if ! nohup "$HOME/agsb/cloudflared" tunnel --no-autoupdate --edge-ip-version auto --protocol http2 run --token "${ARGO_AUTH}" >/dev/null 2>&1 &; then
+    error_exit "固定Argo隧道启动失败"
+fi
 echo "${ARGO_DOMAIN}" > "$HOME/agsb/sbargoym.log"
 echo "${ARGO_AUTH}" > "$HOME/agsb/sbargotoken.log"
 else
 name='临时'
-nohup "$HOME/agsb/cloudflared" tunnel --url http://localhost:"${port_vm_ws}" --edge-ip-version auto --no-autoupdate --protocol http2 > "$HOME/agsb/argo.log" 2>&1 &
+echo "启动临时Argo隧道..."
+if ! nohup "$HOME/agsb/cloudflared" tunnel --url http://localhost:"${port_vm_ws}" --edge-ip-version auto --no-autoupdate --protocol http2 > "$HOME/agsb/argo.log" 2>&1 &; then
+    error_exit "临时Argo隧道启动失败"
+fi
 fi
 echo "申请Argo$name隧道中……请稍等"
 sleep 8
