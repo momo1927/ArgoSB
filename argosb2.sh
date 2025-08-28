@@ -118,8 +118,8 @@ installxray(){
     if [ ! -e "$HOME/agsb/xray" ]; then
         # 使用官方Xray下载链接
         case $cpu in
-            amd64) xray_url="https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64" ;;
-            arm64) xray_url="https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-arm64-v8a" ;;
+            amd64) xray_url="https://github.com/XTLS/Xray-core/releases/download/v25.8.3/Xray-linux-64" ;;
+            arm64) xray_url="https://github.com/XTLS/Xray-core/releases/download/v25.8.3/Xray-linux-arm64-v8a" ;;
             *) error_exit "不支持的CPU架构: $cpu" ;;
         esac
         
@@ -265,8 +265,8 @@ installsb(){
     if [ ! -e "$HOME/agsb/sing-box" ]; then
         # 更新Sing-box下载链接
         case $cpu in
-            amd64) sb_url="https://github.com/SagerNet/sing-box/releases/latest/download/sing-box-$(uname -s | tr '[:upper:]' '[:lower:]')-amd64" ;;
-            arm64) sb_url="https://github.com/SagerNet/sing-box/releases/latest/download/sing-box-$(uname -s | tr '[:upper:]' '[:lower:]')-arm64" ;;
+            amd64) sb_url="https://github.com/SagerNet/sing-box/releases/download/v1.12.4/sing-box_1.12.4_linux_x86_64-$(uname -s | tr '[:upper:]' '[:lower:]')-amd64" ;;
+            arm64) sb_url="https://github.com/SagerNet/sing-box/releases/download/v1.12.4/sing-box_1.12.4_linux_x86_64-$(uname -s | tr '[:upper:]' '[:lower:]')-arm64" ;;
             *) error_exit "不支持的CPU架构: $cpu" ;;
         esac
         
@@ -579,12 +579,12 @@ ins(){
     # 修复条件判断的语法
     if find /proc/*/exe -type l 2>/dev/null | grep -E '/proc/[0-9]+/exe' | xargs -r readlink 2>/dev/null | grep -Eq 'agsb/(s|x)' || pgrep -f 'agsb/(s|x)' >/dev/null 2>&1; then
         [ -f ~/.bashrc ] || touch ~/.bashrc
-        sed -i '/zzzhhh1/d' ~/.bashrc
+        sed -i '/momo/d' ~/.bashrc
         echo "if ! find /proc/*/exe -type l 2>/dev/null | grep -E '/proc/[0-9]+/exe' | xargs -r readlink 2>/dev/null | grep -Eq 'agsb/(s|x)' && ! pgrep -f 'agsb/(s|x)' >/dev/null 2>&1; then export ip=\"${ipsw}\" argo=\"${argo}\" uuid=\"${uuid}\" $xhp=\"${port_xh}\" $anp=\"${port_an}\" $vlp=\"${port_vl_re}\" $vmp=\"${port_vm_ws}\" $hyp=\"${port_hy2}\" $tup=\"${port_tu}\" reym=\"${ym_vl_re}\" agn=\"${ARGO_DOMAIN}\" agk=\"${ARGO_AUTH}\"; bash <(curl -Ls https://raw.githubusercontent.com/yonggekkk/argosb/main/argosb.sh); fi" >> ~/.bashrc
         COMMAND="agsb"
         SCRIPT_PATH="$HOME/bin/$COMMAND"
         mkdir -p "$HOME/bin"
-        curl -Ls https://raw.githubusercontent.com/zzzhhh1/argosb/main/argosb.sh > "$SCRIPT_PATH"
+        curl -Ls https://github.com/momo1927/ArgoSB/raw/refs/heads/main/argosb2.sh > "$SCRIPT_PATH"
         chmod +x "$SCRIPT_PATH"
         sed -i '/export PATH="\$HOME\/bin:\$PATH"/d' ~/.bashrc
         echo 'export PATH="$HOME/bin:$PATH"' >> "$HOME/.bashrc"
@@ -797,7 +797,7 @@ if [ "$1" = "del" ]; then
         fi 
     done
     kill -15 $(pgrep -f 'agsb/s' 2>/dev/null) $(pgrep -f 'agsb/c' 2>/dev/null) $(pgrep -f 'agsb/x' 2>/dev/null) >/dev/null 2>&1
-    sed -i '/zzzhhh1/d' ~/.bashrc
+    sed -i '/momo/d' ~/.bashrc
     sed -i '/export PATH="\$HOME\/bin:\$PATH"/d' ~/.bashrc
     . ~/.bashrc
     crontab -l > /tmp/crontab.tmp 2>/dev/null
