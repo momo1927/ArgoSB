@@ -459,6 +459,7 @@ cat >> "$HOME/agsb/xr.json" <<EOF
 }
 EOF
 echo "启动Xray服务..."
+# 修复语法错误：将then移到与if同一行
 if ! nohup "$HOME/agsb/xray" run -c "$HOME/agsb/xr.json" >/dev/null 2>&1 & then
     error_exit "Xray服务启动失败"
 fi
@@ -483,6 +484,7 @@ cat >> "$HOME/agsb/sb.json" <<EOF
 }
 EOF
 echo "启动Sing-box服务..."
+# 修复语法错误：将then移到与if同一行
 if ! nohup "$HOME/agsb/sing-box" run -c "$HOME/agsb/sb.json" >/dev/null 2>&1 & then
     error_exit "Sing-box服务启动失败"
 fi
@@ -505,6 +507,7 @@ cat >> "$HOME/agsb/sb.json" <<EOF
 }
 EOF
 echo "启动Sing-box服务..."
+# 修复语法错误：将then移到与if同一行
 if ! nohup "$HOME/agsb/sing-box" run -c "$HOME/agsb/sb.json" >/dev/null 2>&1 & then
     error_exit "Sing-box服务启动失败"
 fi
@@ -557,6 +560,7 @@ fi
 if [ -n "${ARGO_DOMAIN}" ] && [ -n "${ARGO_AUTH}" ]; then
 name='固定'
 echo "启动固定Argo隧道..."
+# 修复语法错误：将then移到与if同一行
 if ! nohup "$HOME/agsb/cloudflared" tunnel --no-autoupdate --edge-ip-version auto --protocol http2 run --token "${ARGO_AUTH}" >/dev/null 2>&1 & then
     error_exit "固定Argo隧道启动失败"
 fi
@@ -565,6 +569,7 @@ echo "${ARGO_AUTH}" > "$HOME/agsb/sbargotoken.log"
 else
 name='临时'
 echo "启动临时Argo隧道..."
+# 修复语法错误：将then移到与if同一行
 if ! nohup "$HOME/agsb/cloudflared" tunnel --url http://localhost:"${port_vm_ws}" --edge-ip-version auto --no-autoupdate --protocol http2 > "$HOME/agsb/argo.log" 2>&1 & then
     error_exit "临时Argo隧道启动失败"
 fi
