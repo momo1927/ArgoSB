@@ -115,94 +115,113 @@ insuuid(){
 installxray(){
     echo
     echo "=========启用xray内核========="
-    if [ ! -e "$HOME/agsb/xray" ]; then
-        # 完全避免命令行参数，使用环境变量指定安装路径
-        echo "正在通过官方脚本安装Xray..."
+    # 定义可能的Xray可执行文件路径
+    possible_paths=(
+        "$HOME/agsb/xray"
+        "$HOME/agsb/bin/xray"
+        "/usr/local/bin/xray"
+        "/usr/bin/xray"
+    )
+    
+    # 尝试找到已安装的Xray
+    found_xray=""
+    for path in "${possible_paths[@]}"; do
+        if [ -e "$path" ] && [ -x "$path" ]; then
+            found_xray="$path"
+            break
+        fi
+    done
+    
+    # 如果未找到，进行安装
+    if [ -z "$found_xray" ]; then
+        echo "未找到已安装的Xray，开始安装..."
         
         # 确保安装目录存在
-        mkdir -p "$HOME/agsb"
+        mkdir -p "$HOME/agsb/bin"
         
-        # 先下载安装脚本到临时文件
+        # 方案1：尝试官方脚本安装
+        echo "尝试通过官方脚本安装Xray..."
         curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh -o "$HOME/agsb/install-xray.sh"
         chmod +x "$HOME/agsb/install-xray.sh"
-        
-        # 使用环境变量指定安装前缀，不直接传递命令行参数
         export PREFIX="$HOME/agsb"
-        if ! "$HOME/agsb/install-xray.sh"; then
-            error_exit "Xray官方脚本安装失败"
-        fi
-        unset PREFIX  # 清理环境变量
-        
-        # 清理临时文件
-        rm -f "$HOME/agsb/install-xray.sh"
-        
-        # 创建符号链接
-        if [ -e "$HOME/agsb/bin/xray" ] && [ ! -e "$HOME/agsb/xray" ]; then
-            ln -s "$HOME/agsb/bin/xray" "$HOME/agsb/xray"
-        fi
-    fi
-
-    # 增强的Xray运行检查和诊断
-    if [ -e "$HOME/agsb/xray" ]; then
-        echo "检查Xray内核兼容性..."
-        
-        # 检查文件类型和架构兼容性
-        file "$HOME/agsb/xray"
-        ldd "$HOME/agsb/xray" 2>&1 | grep -i "not found" && echo "警告：发现缺失的依赖库"
-        
-        # 尝试运行并捕获详细错误
-        if ! "$HOME/agsb/xray" version >"$HOME/agsb/xray-version.log" 2>"$HOME/agsb/xray-error.log"; then
-            echo "Xray运行错误详情："
-            cat "$HOME/agsb/xray-error.log"
+        if "$HOME/agsb/install-xray.sh"; then
+            echo "官方脚本安装成功"
+            rm -f "$HOME/agsb/install-xray.sh"
+        else
+            echo "官方脚本安装失败，尝试手动安装..."
+            rm -f "$HOME/agsb/install-xray.sh"
             
-            # 检查常见问题
-            if grep -qi "permission denied" "$HOME/agsb/xray-error.log"; then
-                echo "尝试修复权限问题..."
-                chmod +x "$HOME/agsb/xray"
-                chmod +x "$HOME/agsb/bin/xray"
-                # 再次尝试
-                if "$HOME/agsb/xray" version >/dev/null 2>&1; then
-                    echo "权限修复成功，Xray可以运行了"
+            # 方案2：手动下载安装
+            arch=$(uname -m)
+            case $arch in
+                x86_64) xray_arch="amd64" ;;
+                aarch64) xray_arch="arm64" ;;
+                *) error_exit "不支持的系统架构: $arch" ;;
+            esac
+            
+            # 获取最新版本
+            latest_version=$(curl -s https://api.github.com/repos/XTLS/Xray-core/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")')
+            if [ -z "$latest_version" ]; then
+                latest_version="v25.8.3"  #  fallback到已知版本
+                echo "无法获取最新版本，使用默认版本: $latest_version"
+            fi
+            
+            xray_url="https://github.com/XTLS/Xray-core/releases/download/$latest_version/Xray-linux-$xray_arch.zip"
+            echo "手动下载Xray $latest_version ($xray_arch)..."
+            
+            if curl -L "$xray_url" -o "$HOME/agsb/xray.zip"; then
+                # 解压并安装
+                if command -v unzip >/dev/null 2>&1; then
+                    unzip -q -o "$HOME/agsb/xray.zip" -d "$HOME/agsb/bin/"
+                    rm -f "$HOME/agsb/xray.zip"
+                    chmod +x "$HOME/agsb/bin/xray"
                 else
-                    error_exit "Xray内核无法运行，权限问题已尝试修复但未解决"
-                fi
-            elif grep -qi "cannot execute" "$HOME/agsb/xray-error.log"; then
-                # 尝试下载与系统架构匹配的版本
-                echo "检测到架构不兼容，尝试下载匹配版本..."
-                arch=$(uname -m)
-                case $arch in
-                    x86_64) xray_arch="amd64" ;;
-                    aarch64) xray_arch="arm64" ;;
-                    *) error_exit "不支持的系统架构: $arch" ;;
-                esac
-                
-                # 手动下载对应架构的二进制文件
-                latest_version=$(curl -s https://api.github.com/repos/XTLS/Xray-core/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")')
-                xray_url="https://github.com/XTLS/Xray-core/releases/download/$latest_version/Xray-linux-$xray_arch.zip"
-                
-                echo "下载Xray $latest_version ($xray_arch)..."
-                curl -L "$xray_url" -o "$HOME/agsb/xray.zip"
-                unzip -q -o "$HOME/agsb/xray.zip" -d "$HOME/agsb/bin/"
-                rm -f "$HOME/agsb/xray.zip"
-                chmod +x "$HOME/agsb/bin/xray"
-                
-                # 再次检查
-                if "$HOME/agsb/xray" version >/dev/null 2>&1; then
-                    echo "已安装兼容版本的Xray内核"
-                else
-                    error_exit "Xray内核无法运行，系统架构可能不兼容"
+                    error_exit "缺少unzip工具，无法解压安装包"
                 fi
             else
-                error_exit "Xray内核无法运行，请检查系统兼容性和依赖"
+                error_exit "无法下载Xray安装包，请检查网络连接"
             fi
-        else
-            sbcore=$("$HOME/agsb/xray" version 2>/dev/null | awk '/^Xray/{print $2}')
-            echo "已安装Xray正式版内核：$sbcore"
         fi
-    else
-        error_exit "未找到Xray可执行文件"
+        unset PREFIX
+        
+        # 再次检查是否安装成功
+        for path in "${possible_paths[@]}"; do
+            if [ -e "$path" ] && [ -x "$path" ]; then
+                found_xray="$path"
+                break
+            fi
+        done
     fi
-
+    
+    # 创建符号链接（如果需要）
+    if [ -n "$found_xray" ] && [ ! -e "$HOME/agsb/xray" ]; then
+        ln -s "$found_xray" "$HOME/agsb/xray"
+        found_xray="$HOME/agsb/xray"
+    fi
+    
+    # 最终检查
+    if [ -z "$found_xray" ] || [ ! -x "$found_xray" ]; then
+        # 最后的努力：显示可能的安装路径供用户手动处理
+        echo "Xray安装路径检测："
+        for path in "${possible_paths[@]}"; do
+            if [ -e "$path" ]; then
+                echo "找到文件但不可执行: $path"
+                ls -l "$path"
+            fi
+        done
+        error_exit "未找到Xray可执行文件，请手动安装"
+    fi
+    
+    # 验证运行状态
+    if ! "$found_xray" version >"$HOME/agsb/xray-version.log" 2>"$HOME/agsb/xray-error.log"; then
+        echo "Xray运行错误详情："
+        cat "$HOME/agsb/xray-error.log"
+        error_exit "Xray已找到但无法运行"
+    fi
+    
+    sbcore=$("$found_xray" version 2>/dev/null | awk '/^Xray/{print $2}')
+    echo "已确认Xray可执行文件：$found_xray (版本: $sbcore)"
+    
     # 后续配置代码保持不变...
     cat > "$HOME/agsb/xr.json" <<EOF
 {
@@ -222,7 +241,7 @@ EOF
         echo "Reality域名：$ym_vl_re"
         mkdir -p "$HOME/agsb/xrk"
         if [ ! -e "$HOME/agsb/xrk/private_key" ]; then
-            key_pair=$("$HOME/agsb/xray" x25519)
+            key_pair=$("$found_xray" x25519)
             private_key=$(echo "$key_pair" | head -1 | awk '{print $3}')
             public_key=$(echo "$key_pair" | tail -n 1 | awk '{print $3}')
             short_id=$(date +%s%N | sha256sum | cut -c 1-8)
@@ -336,6 +355,7 @@ EOF
 }
 EOF
 }
+
 
 installsb(){
     echo
