@@ -140,17 +140,70 @@ installxray(){
         if [ -e "$HOME/agsb/bin/xray" ] && [ ! -e "$HOME/agsb/xray" ]; then
             ln -s "$HOME/agsb/bin/xray" "$HOME/agsb/xray"
         fi
-        
-        # 验证安装
-        if ! "$HOME/agsb/xray" version >/dev/null 2>&1; then
-            error_exit "Xray内核无法运行，请检查系统兼容性"
-        fi
-        
-        sbcore=$("$HOME/agsb/xray" version 2>/dev/null | awk '/^Xray/{print $2}')
-        echo "已安装Xray正式版内核：$sbcore"
     fi
+
+    # 增强的Xray运行检查和诊断
+    if [ -e "$HOME/agsb/xray" ]; then
+        echo "检查Xray内核兼容性..."
+        
+        # 检查文件类型和架构兼容性
+        file "$HOME/agsb/xray"
+        ldd "$HOME/agsb/xray" 2>&1 | grep -i "not found" && echo "警告：发现缺失的依赖库"
+        
+        # 尝试运行并捕获详细错误
+        if ! "$HOME/agsb/xray" version >"$HOME/agsb/xray-version.log" 2>"$HOME/agsb/xray-error.log"; then
+            echo "Xray运行错误详情："
+            cat "$HOME/agsb/xray-error.log"
+            
+            # 检查常见问题
+            if grep -qi "permission denied" "$HOME/agsb/xray-error.log"; then
+                echo "尝试修复权限问题..."
+                chmod +x "$HOME/agsb/xray"
+                chmod +x "$HOME/agsb/bin/xray"
+                # 再次尝试
+                if "$HOME/agsb/xray" version >/dev/null 2>&1; then
+                    echo "权限修复成功，Xray可以运行了"
+                else
+                    error_exit "Xray内核无法运行，权限问题已尝试修复但未解决"
+                fi
+            elif grep -qi "cannot execute" "$HOME/agsb/xray-error.log"; then
+                # 尝试下载与系统架构匹配的版本
+                echo "检测到架构不兼容，尝试下载匹配版本..."
+                arch=$(uname -m)
+                case $arch in
+                    x86_64) xray_arch="amd64" ;;
+                    aarch64) xray_arch="arm64" ;;
+                    *) error_exit "不支持的系统架构: $arch" ;;
+                esac
+                
+                # 手动下载对应架构的二进制文件
+                latest_version=$(curl -s https://api.github.com/repos/XTLS/Xray-core/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")')
+                xray_url="https://github.com/XTLS/Xray-core/releases/download/$latest_version/Xray-linux-$xray_arch.zip"
+                
+                echo "下载Xray $latest_version ($xray_arch)..."
+                curl -L "$xray_url" -o "$HOME/agsb/xray.zip"
+                unzip -q -o "$HOME/agsb/xray.zip" -d "$HOME/agsb/bin/"
+                rm -f "$HOME/agsb/xray.zip"
+                chmod +x "$HOME/agsb/bin/xray"
+                
+                # 再次检查
+                if "$HOME/agsb/xray" version >/dev/null 2>&1; then
+                    echo "已安装兼容版本的Xray内核"
+                else
+                    error_exit "Xray内核无法运行，系统架构可能不兼容"
+                fi
+            else
+                error_exit "Xray内核无法运行，请检查系统兼容性和依赖"
+            fi
+        else
+            sbcore=$("$HOME/agsb/xray" version 2>/dev/null | awk '/^Xray/{print $2}')
+            echo "已安装Xray正式版内核：$sbcore"
+        fi
+    else
+        error_exit "未找到Xray可执行文件"
+    fi
+
     # 后续配置代码保持不变...
-}
     cat > "$HOME/agsb/xr.json" <<EOF
 {
   "log": {
@@ -225,10 +278,13 @@ EOF
         "destOverride": ["http", "tls", "quic"],
         "metadataOnly": false
       }
-    },
+    }
 EOF
     else
         xhp=xhptargo
+    fi
+    if [ -n "$xhp" ] && [ -n "$vlp" ]; then
+        echo "," >> "$HOME/agsb/xr.json"
     fi
     if [ -n "$vlp" ]; then
         vlp=vlpt
@@ -269,13 +325,17 @@ EOF
           "enabled": true,
           "destOverride": ["http", "tls", "quic"],
           "metadataOnly": false
-      }
-    },  
+          }
+        }
 EOF
     else
         vlp=vlptargo
     fi
-
+    cat >> "$HOME/agsb/xr.json" <<EOF
+  ]
+}
+EOF
+}
 
 installsb(){
     echo
