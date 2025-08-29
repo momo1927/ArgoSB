@@ -84,12 +84,12 @@ download_and_verify() {
     fi
 
     # 检查文件类型是否符合预期
-   # if ! file "$output" | grep -q "$expected_type"; then
-    #    rm -f "$output"
-     #   error_exit "下载的文件 $output 不是有效的 $expected_type 文件"
-  #  fi
+    if ! file "$output" | grep -q "$expected_type"; then
+        rm -f "$output"
+       error_exit "下载的文件 $output 不是有效的 $expected_type 文件"
+    fi
 
-  #  chmod +x "$output"
+    chmod +x "$output"
 }
 
 warpcheck(){
