@@ -358,13 +358,13 @@ EOF
     # 启动前检查
     echo "启动Xray前进行检查..."
     
-    # 1. 检查配置文件语法
-    echo "验证Xray配置文件..."
-    if ! "$found_xray" test -c "$HOME/agsb/xr.json"; then
-        echo "配置文件错误详情："
-        "$found_xray" test -c "$HOME/agsb/xr.json" 2>&1
-        error_exit "Xray配置文件存在语法错误，启动失败"
-    fi
+# 1. 检查配置文件语法（兼容版本）
+echo "验证Xray配置文件..."
+if ! "$found_xray" run -test -config "$HOME/agsb/xr.json" >/dev/null 2>&1; then
+    echo "配置文件错误详情："
+    "$found_xray" run -test -config "$HOME/agsb/xr.json" 2>&1
+    error_exit "Xray配置文件存在语法错误，启动失败"
+fi
     
     # 2. 检查端口占用
     check_port_usage() {
