@@ -59,7 +59,7 @@ echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 echo "Blogger博客 ：kjgx668.blogspot.com"
 echo "YouTube频道 ：www.youtube.com/@kejigongxiang"
 echo "ArgoSB一键无交互极简脚本【Sing-box + Xray + Argo三内核合一】"
-echo "当前版本：V25.7.4 (修复版)"
+echo "当前版本：V25.7.4 (修复版，使用Xray官方安装脚本)"
 echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 
 hostname=$(uname -a | awk '{print $2}')
@@ -116,14 +116,24 @@ installxray(){
     echo
     echo "=========启用xray内核========="
     if [ ! -e "$HOME/agsb/xray" ]; then
-        # 使用官方Xray下载链接
-        case $cpu in
-            amd64) xray_url="https://github.com/XTLS/Xray-core/releases/download/v25.8.3/Xray-linux-64" ;;
-            arm64) xray_url="https://github.com/XTLS/Xray-core/releases/download/v25.8.3/Xray-linux-arm64-v8a" ;;
-            *) error_exit "不支持的CPU架构: $cpu" ;;
-        esac
+        # 使用Xray官方安装脚本安装
+        echo "正在通过官方脚本安装Xray..."
         
-        download_and_verify "$xray_url" "$HOME/agsb/xray" "ELF 64-bit executable"
+        # 确保安装目录存在
+        mkdir -p "$HOME/agsb"
+        
+        # 执行官方安装脚本，指定安装路径
+        if ! bash <(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh) install --prefix "$HOME/agsb" --version latest; then
+            error_exit "Xray官方脚本安装失败"
+        fi
+        
+        # 验证Xray是否安装成功
+        if [ ! -e "$HOME/agsb/bin/xray" ]; then
+            error_exit "Xray安装后未找到可执行文件"
+        fi
+        
+        # 创建符号链接到agsb目录
+        ln -s "$HOME/agsb/bin/xray" "$HOME/agsb/xray"
         
         # 验证Xray是否可运行
         if ! "$HOME/agsb/xray" version >/dev/null 2>&1; then
