@@ -123,23 +123,36 @@ installxray(){
         mkdir -p "$HOME/agsb"
         
         # 执行官方安装脚本，指定安装路径
+installxray(){
+    echo
+    echo "=========启用xray内核========="
+    if [ ! -e "$HOME/agsb/xray" ]; then
+        # 完全避免命令行参数，使用环境变量指定安装路径
+        echo "正在通过官方脚本安装Xray..."
+        
+        # 确保安装目录存在
+        mkdir -p "$HOME/agsb"
+        
+        # 先下载安装脚本到临时文件
         curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh -o "$HOME/agsb/install-xray.sh"
         chmod +x "$HOME/agsb/install-xray.sh"
         
-        # 直接执行本地脚本并传递参数
-        if ! "$HOME/agsb/install-xray.sh" --prefix "$HOME/agsb"; then
+        # 使用环境变量指定安装前缀，不直接传递命令行参数
+        export PREFIX="$HOME/agsb"
+        if ! "$HOME/agsb/install-xray.sh"; then
             error_exit "Xray官方脚本安装失败"
         fi
+        unset PREFIX  # 清理环境变量
         
-        # 验证Xray是否安装成功
-        if [ ! -e "$HOME/agsb/bin/xray" ]; then
-            error_exit "Xray安装后未找到可执行文件"
+        # 清理临时文件
+        rm -f "$HOME/agsb/install-xray.sh"
+        
+        # 创建符号链接
+        if [ -e "$HOME/agsb/bin/xray" ] && [ ! -e "$HOME/agsb/xray" ]; then
+            ln -s "$HOME/agsb/bin/xray" "$HOME/agsb/xray"
         fi
         
-        # 创建符号链接到agsb目录
-        ln -s "$HOME/agsb/bin/xray" "$HOME/agsb/xray"
-        
-        # 验证Xray是否可运行
+        # 验证安装
         if ! "$HOME/agsb/xray" version >/dev/null 2>&1; then
             error_exit "Xray内核无法运行，请检查系统兼容性"
         fi
@@ -147,6 +160,8 @@ installxray(){
         sbcore=$("$HOME/agsb/xray" version 2>/dev/null | awk '/^Xray/{print $2}')
         echo "已安装Xray正式版内核：$sbcore"
     fi
+    # 后续配置代码保持不变...
+}
     cat > "$HOME/agsb/xr.json" <<EOF
 {
   "log": {
