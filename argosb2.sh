@@ -123,7 +123,11 @@ installxray(){
         mkdir -p "$HOME/agsb"
         
         # 执行官方安装脚本，指定安装路径
-        if ! bash <(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh) --prefix "$HOME/agsb"; then
+        curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh -o "$HOME/agsb/install-xray.sh"
+        chmod +x "$HOME/agsb/install-xray.sh"
+        
+        # 直接执行本地脚本并传递参数
+        if ! "$HOME/agsb/install-xray.sh" --prefix "$HOME/agsb"; then
             error_exit "Xray官方脚本安装失败"
         fi
         
