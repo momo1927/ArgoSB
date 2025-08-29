@@ -222,13 +222,13 @@ installxray(){
     sbcore=$("$found_xray" version 2>/dev/null | awk '/^Xray/{print $2}')
     echo "已确认Xray可执行文件：$found_xray (版本: $sbcore)"
     
-    # 后续配置代码保持不变...
+    # 生成配置文件
     cat > "$HOME/agsb/xr.json" <<EOF
 {
   "log": {
-    "access": "/dev/null",
-    "error": "/dev/null",
-    "loglevel": "none"
+    "access": "$HOME/agsb/xray-access.log",
+    "error": "$HOME/agsb/xray-error.log",
+    "loglevel": "warning"
   },
   "inbounds": [
 EOF
@@ -354,6 +354,75 @@ EOF
   ]
 }
 EOF
+
+    # 启动前检查
+    echo "启动Xray前进行检查..."
+    
+    # 1. 检查配置文件语法
+    echo "验证Xray配置文件..."
+    if ! "$found_xray" test -c "$HOME/agsb/xr.json"; then
+        echo "配置文件错误详情："
+        "$found_xray" test -c "$HOME/agsb/xr.json" 2>&1
+        error_exit "Xray配置文件存在语法错误，启动失败"
+    fi
+    
+    # 2. 检查端口占用
+    check_port_usage() {
+        local port=$1
+        if command -v lsof >/dev/null 2>&1; then
+            if lsof -i :"$port" >/dev/null 2>&1; then
+                echo "端口 $port 已被占用，尝试终止占用进程..."
+                lsof -ti :"$port" | xargs -r kill -9
+                sleep 2
+                if lsof -i :"$port" >/dev/null 2>&1; then
+                    error_exit "端口 $port 仍被占用，无法启动Xray"
+                fi
+            fi
+        elif command -v netstat >/dev/null 2>&1; then
+            if netstat -tulpn | grep -q ":$port"; then
+                echo "端口 $port 已被占用"
+                error_exit "端口 $port 已被占用，无法启动Xray"
+            fi
+        fi
+    }
+    
+    # 检查配置中使用的端口
+    if [ -n "$port_xh" ]; then
+        check_port_usage "$port_xh"
+    fi
+    if [ -n "$port_vl_re" ]; then
+        check_port_usage "$port_vl_re"
+    fi
+    
+    # 3. 确保日志目录可写
+    touch "$HOME/agsb/xray-access.log" "$HOME/agsb/xray-error.log"
+    chmod 666 "$HOME/agsb/xray-access.log" "$HOME/agsb/xray-error.log"
+    
+    # 4. 停止已运行的Xray进程
+    if pgrep -f "$found_xray" >/dev/null 2>&1; then
+        echo "停止已运行的Xray进程..."
+        pkill -f "$found_xray"
+        sleep 2
+    fi
+    
+    # 启动Xray并捕获错误
+    echo "启动Xray服务..."
+    if ! nohup "$found_xray" run -c "$HOME/agsb/xr.json" >"$HOME/agsb/xray-nohup.log" 2>&1 &; then
+        echo "Xray启动命令执行失败，错误日志："
+        cat "$HOME/agsb/xray-nohup.log"
+        error_exit "Xray服务启动失败"
+    fi
+    
+    # 验证启动状态
+    sleep 3
+    if pgrep -f "$found_xray" >/dev/null 2>&1; then
+        echo "Xray服务启动成功，进程ID：$(pgrep -f "$found_xray")"
+    else
+        echo "Xray启动后意外退出，错误日志："
+        cat "$HOME/agsb/xray-error.log"
+        cat "$HOME/agsb/xray-nohup.log"
+        error_exit "Xray服务启动失败"
+    fi
 }
 
 
