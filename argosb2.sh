@@ -407,7 +407,7 @@ EOF
     
     # 启动Xray并捕获错误
     echo "启动Xray服务..."
-    if ! nohup "$found_xray" run -c "$HOME/agsb/xr.json" >"$HOME/agsb/xray-nohup.log" 2>&1 &; then
+    if ! nohup "$found_xray" run -c "$HOME/agsb/xr.json" >"$HOME/agsb/xray-nohup.log" 2>&1 & then
         echo "Xray启动命令执行失败，错误日志："
         cat "$HOME/agsb/xray-nohup.log"
         error_exit "Xray服务启动失败"
