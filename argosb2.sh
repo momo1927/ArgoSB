@@ -116,17 +116,6 @@ installxray(){
     echo
     echo "=========启用xray内核========="
     if [ ! -e "$HOME/agsb/xray" ]; then
-        # 使用Xray官方安装脚本安装
-        echo "正在通过官方脚本安装Xray..."
-        
-        # 确保安装目录存在
-        mkdir -p "$HOME/agsb"
-        
-        # 执行官方安装脚本，指定安装路径
-installxray(){
-    echo
-    echo "=========启用xray内核========="
-    if [ ! -e "$HOME/agsb/xray" ]; then
         # 完全避免命令行参数，使用环境变量指定安装路径
         echo "正在通过官方脚本安装Xray..."
         
@@ -286,7 +275,7 @@ EOF
     else
         vlp=vlptargo
     fi
-}
+
 
 installsb(){
     echo
